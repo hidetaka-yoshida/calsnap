@@ -1,0 +1,8 @@
+{
+  "name": "かるスナップ (CalSnap) - 毎日カロリー管理",
+  "short_name": "かるスナップ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fb",
+  "theme_color": "#10b981"
+}

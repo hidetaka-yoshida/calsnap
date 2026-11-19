@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#10b981" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>かるスナップ (CalSnap)｜毎日カロリー管理</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- Auth Lock Overlay (Google Sign-In or Passcode) -->
+  <div id="authOverlay" class="auth-overlay hidden">
+    <div class="auth-card">
+      <div class="brand-icon">🥗</div>
+      <h2>かるスナップ <span class="brand-en">CalSnap</span></h2>
+      <p id="authDesc" class="muted-text">ログインしてください</p>
+      <div id="googleSignInWrap" class="hidden mt-12">
+        <div id="googleBtnContainer" style="display:flex;justify-content:center;"></div>
+      </div>
+      <form id="authForm" class="hidden mt-12">
+        <input id="passcodeInput" type="password" inputmode="numeric" placeholder="パスコード" required autocomplete="current-password" />
+        <button type="submit" class="btn btn-primary btn-block mt-12">ロック解除</button>
+      </form>
+      <p id="authError" class="auth-error hidden"></p>
+    </div>
+  </div>
+
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon">🥗</span>
+        <div>
+          <h1>かるスナップ <span class="brand-en">CalSnap</span></h1>
+          <p class="subtitle">毎日のカロリー＆基礎代謝コントロール</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span id="userBadge" class="badge badge-user hidden"></span>
+        <span id="modeBadge" class="badge badge-cost">0円ローカル推定</span>
+        <button id="openSettingsBtn" class="btn btn-outline">⚙️ 設定</button>
+        <button id="logoutBtn" class="btn btn-outline hidden">ログアウト</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Today / Selected Day Status Banner -->
+    <section class="status-grid">
+      <div class="card status-card">
+        <div class="card-header-row">
+          <span class="card-label" id="statusDateLabel">今日の摂取状況</span>
+          <span id="judgmentBadge" class="status-pill gray">読込中...</span>
+        </div>
+        <div class="calorie-hero">
+          <span id="heroCalories" class="hero-num">0</span>
+          <span class="hero-unit">kcal</span>
+          <span class="hero-sep">/</span>
+          <span class="hero-target">目標 <strong id="heroTarget">1800</strong> kcal</span>
+        </div>
+        <p id="judgmentDetail" class="judgment-detail">食事を記録すると基礎代謝量をもとに良否を判定します。</p>
+
+        <div class="bmr-meter-wrap">
+          <div class="bmr-meter-labels">
+            <span>0</span>
+            <span id="bmrMarkerLabel">基礎代謝: 1500</span>
+            <span id="targetMarkerLabel">目標: 1800</span>
+          </div>
+          <div class="bmr-meter">
+            <div id="bmrZone" class="bmr-zone" title="基礎代謝未満ゾーン"></div>
+            <div id="calorieBar" class="calorie-bar"></div>
+            <div id="bmrLine" class="marker-line bmr-line" title="基礎代謝量"></div>
+            <div id="targetLine" class="marker-line target-line" title="目標カロリー"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card pfc-card">
+        <div class="card-header-row">
+          <span class="card-label">栄養価概算（PFCバランス）</span>
+          <span id="mealCountLabel" class="muted-text">0件の記録</span>
+        </div>
+        <div class="pfc-bars">
+          <div class="pfc-item">
+            <div class="pfc-label"><span>タンパク質 (P)</span><strong id="pVal">0 g</strong></div>
+            <div class="pfc-track"><div id="pBar" class="pfc-fill p-fill"></div></div>
+          </div>
+          <div class="pfc-item">
+            <div class="pfc-label"><span>脂質 (F)</span><strong id="fVal">0 g</strong></div>
+            <div class="pfc-track"><div id="fBar" class="pfc-fill f-fill"></div></div>
+          </div>
+          <div class="pfc-item">
+            <div class="pfc-label"><span>炭水化物 (C)</span><strong id="cVal">0 g</strong></div>
+            <div class="pfc-track"><div id="cBar" class="pfc-fill c-fill"></div></div>
+          </div>
+        </div>
+        <p class="pfc-note">※ 概算値です。日常の傾向把握に最適化しています。</p>
+      </div>
+    </section>
+
+    <!-- Main 2-column workspace -->
+    <section class="workspace-grid">
+      <!-- Left: Meal Input & Estimation -->
+      <div class="card record-card">
+        <h2>🍽️ 食事を記録する</h2>
+
+        <div class="input-mode-tabs">
+          <button type="button" class="tab-btn active" data-input-tab="photo">📷 写真・カメラ</button>
+          <button type="button" class="tab-btn" data-input-tab="text">✏️ メニュー名</button>
+        </div>
+
+        <form id="mealForm">
+          <!-- Photo Input Panel (Default on mobile-first flow) -->
+          <div id="photoPanel" class="input-panel">
+            <!-- Direct Camera Input (rear camera) & Album Input -->
+            <input id="cameraInput" type="file" accept="image/*" capture="environment" class="hidden-file" />
+            <input id="photoInput" type="file" accept="image/*" class="hidden-file" />
+
+            <div class="camera-actions">
+              <button type="button" id="cameraBtn" class="btn btn-primary btn-camera">📷 カメラで撮影する</button>
+              <button type="button" id="albumBtn" class="btn btn-outline btn-album">🖼️ アルバムから選択</button>
+            </div>
+
+            <div id="dropZone" class="drop-zone mt-8">
+              <div id="dropPlaceholder">
+                <p>撮影または選択した写真がここに表示されます</p>
+                <span class="muted-text">自動で軽量リサイズ（約40KB）して概算します</span>
+              </div>
+              <div id="photoPreviewWrap" class="photo-preview-wrap hidden">
+                <img id="photoPreview" alt="食事プレビュー" />
+                <button type="button" id="clearPhotoBtn" class="btn-clear-photo">✕</button>
+              </div>
+            </div>
+
+            <div class="inline-group mt-8">
+              <input id="photoHint" type="text" placeholder="補足ヒント（任意: 例「パスタ」「弁当」）" />
+              <button type="button" id="estimatePhotoBtn" class="btn btn-secondary">写真で概算</button>
+            </div>
+          </div>
+
+          <!-- Text Input Panel -->
+          <div id="textPanel" class="input-panel hidden">
+            <label class="field-label" for="mealQuery">メニュー名</label>
+            <div class="inline-group">
+              <input id="mealQuery" type="text" placeholder="例: 牛丼、唐揚げ定食、サラダチキン..." autocomplete="off" />
+              <button type="button" id="estimateTextBtn" class="btn btn-secondary">概算</button>
+            </div>
+            <div class="quick-chips">
+              <button type="button" class="chip" data-quick="おにぎり">おにぎり</button>
+              <button type="button" class="chip" data-quick="唐揚げ定食">唐揚げ定食</button>
+              <button type="button" class="chip" data-quick="焼き魚定食">焼き魚定食</button>
+              <button type="button" class="chip" data-quick="醤油ラーメン">ラーメン</button>
+              <button type="button" class="chip" data-quick="野菜サラダ">サラダ</button>
+              <button type="button" class="chip" data-quick="カレーライス">カレー</button>
+            </div>
+          </div>
+
+          <!-- Portion selector -->
+          <div class="portion-row">
+            <span class="field-label">量の目安:</span>
+            <div class="portion-pills">
+              <button type="button" class="portion-btn" data-portion="small">少なめ (0.7x)</button>
+              <button type="button" class="portion-btn active" data-portion="normal">普通 (1.0x)</button>
+              <button type="button" class="portion-btn" data-portion="large">大盛り (1.4x)</button>
+            </div>
+          </div>
+
+          <!-- Estimation notice & candidates -->
+          <div id="estimateBox" class="estimate-box hidden">
+            <div id="estimateNote" class="estimate-note"></div>
+            <div id="candidateList" class="candidate-list"></div>
+          </div>
+
+          <!-- Editable nutrition fields -->
+          <div class="nutrition-grid">
+            <div class="field-col full-col">
+              <label class="field-label" for="mealName">記録するメニュー名</label>
+              <input id="mealName" type="text" required placeholder="メニュー名" />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealCalories">カロリー (kcal)</label>
+              <input id="mealCalories" type="number" inputmode="numeric" min="0" max="5000" required value="500" />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealType">食事区分</label>
+              <select id="mealType">
+                <option value="朝食">朝食</option>
+                <option value="昼食" selected>昼食</option>
+                <option value="夕食">夕食</option>
+                <option value="間食">間食</option>
+              </select>
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealProtein">タンパク質 (g)</label>
+              <input id="mealProtein" type="number" inputmode="decimal" step="0.1" min="0" value="18" />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealFat">脂質 (g)</label>
+              <input id="mealFat" type="number" inputmode="decimal" step="0.1" min="0" value="16" />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealCarbs">炭水化物 (g)</label>
+              <input id="mealCarbs" type="number" inputmode="decimal" step="0.1" min="0" value="65" />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="mealDatetime">日時</label>
+              <input id="mealDatetime" type="datetime-local" required />
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block mt-12">この内容で記録する</button>
+        </form>
+      </div>
+
+      <!-- Right: Day / Week / Month Visualization -->
+      <div class="card chart-card">
+        <div class="chart-header">
+          <h2>📊 日・週・月の集計</h2>
+          <div class="period-tabs">
+            <button type="button" class="period-btn active" data-period="day">日</button>
+            <button type="button" class="period-btn" data-period="week">週</button>
+            <button type="button" class="period-btn" data-period="month">月</button>
+          </div>
+        </div>
+
+        <div class="date-nav">
+          <button type="button" id="prevPeriodBtn" class="btn btn-sm btn-outline">◀ 前へ</button>
+          <div class="date-nav-center">
+            <strong id="periodTitle">-</strong>
+            <input type="date" id="datePicker" class="date-picker-inline" />
+          </div>
+          <button type="button" id="todayBtn" class="btn btn-sm btn-outline">今日</button>
+          <button type="button" id="nextPeriodBtn" class="btn btn-sm btn-outline">次へ ▶</button>
+        </div>
+
+        <!-- Period summary strip -->
+        <div class="period-stats">
+          <div class="stat-box">
+            <span class="stat-label">合計</span>
+            <strong id="statTotal">0 kcal</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">1日平均</span>
+            <strong id="statAvg">0 kcal</strong>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">良好日数</span>
+            <strong id="statGood">0 / 0 日</strong>
+          </div>
+        </div>
+
+        <!-- Custom SVG Chart -->
+        <div id="chartContainer" class="chart-container"></div>
+
+        <div class="legend-row">
+          <span class="legend-item"><i class="dot green"></i>良好</span>
+          <span class="legend-item"><i class="dot amber"></i>基礎代謝未満</span>
+          <span class="legend-item"><i class="dot orange"></i>やや超過</span>
+          <span class="legend-item"><i class="dot red"></i>超過</span>
+          <span class="legend-item"><i class="line-legend bmr"></i>基礎代謝</span>
+          <span class="legend-item"><i class="line-legend target"></i>目標</span>
+        </div>
+
+        <!-- Meal History List -->
+        <div class="history-section">
+          <h3>記録一覧</h3>
+          <div id="mealList" class="meal-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ 基礎代謝量・運用設定</h2>
+        <button type="button" id="closeSettingsBtn" class="btn-icon">✕</button>
+      </div>
+      <form id="settingsForm">
+        <div class="settings-section">
+          <h3>1. 基礎代謝量（BMR）と目標カロリー</h3>
+          <div class="bmr-calc-box">
+            <p class="muted-text">簡易計算（Mifflin-St Jeor式）から基礎代謝を自動算出できます：</p>
+            <div class="calc-grid">
+              <select id="calcSex">
+                <option value="male">男性</option>
+                <option value="female">女性</option>
+              </select>
+              <input id="calcAge" type="number" inputmode="numeric" placeholder="年齢" value="30" min="10" max="100" />
+              <input id="calcHeight" type="number" inputmode="numeric" placeholder="身長(cm)" value="170" min="100" max="230" />
+              <input id="calcWeight" type="number" inputmode="numeric" placeholder="体重(kg)" value="65" min="30" max="200" />
+              <button type="button" id="calcBmrBtn" class="btn btn-sm btn-secondary">BMR計算</button>
+            </div>
+          </div>
+
+          <div class="nutrition-grid mt-8">
+            <div class="field-col">
+              <label class="field-label" for="settingBmr">基礎代謝量 (kcal/日)</label>
+              <input id="settingBmr" type="number" inputmode="numeric" min="500" max="5000" required />
+            </div>
+            <div class="field-col">
+              <label class="field-label" for="settingTarget">目標摂取カロリー (kcal/日)</label>
+              <input id="settingTarget" type="number" inputmode="numeric" min="500" max="6000" required />
+            </div>
+          </div>
+          <div class="quick-chips mt-8">
+            <button type="button" class="chip" data-goal="diet">減量 (BMR×1.15)</button>
+            <button type="button" class="chip" data-goal="maintain">維持 (BMR×1.35)</button>
+            <button type="button" class="chip" data-goal="bulk">増量 (BMR×1.55)</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>2. 推定コスト設定（デフォルト0円）</h3>
+          <label class="checkbox-row">
+            <input id="settingUseAi" type="checkbox" />
+            <span>Gemini Flash-Lite APIを併用する（任意・低コストAI高精度モード）</span>
+          </label>
+          <p class="muted-text">
+            OFFの場合は内蔵辞書＋画像特徴ローカル推定のみで動作し、APIコストは<strong>0円</strong>です。
+          </p>
+          <div class="field-col mt-8">
+            <label class="field-label" for="settingApiKey">Gemini APIキー（任意）</label>
+            <input id="settingApiKey" type="password" placeholder="未入力のままならローカル0円モード" />
+            <span id="apiKeyStatus" class="muted-text"></span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelSettingsBtn" class="btn btn-outline">キャンセル</button>
+          <button type="submit" class="btn btn-primary">設定を保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
